@@ -62,14 +62,18 @@ def read_examples_from_file(data_dir, mode):
         for line in f:
             if line.startswith("-DOCSTART-") or line == "" or line == "\n":
                 if words:
-                    entities = get_entities(labels_i)
-                    for _, start, end in entities:
+                    if mode!='train':
                         segment_ids = [0] * len(words)
-                        _labels_c = ['O']*len(words)
-                        for i in range(start, end+1):
-                            segment_ids[i] = 1
-                            _labels_c[i] = labels_c[i]
-                        examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
+                        examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
+                    else:
+                        entities = get_entities(labels_i)
+                        for _, start, end in entities:
+                            segment_ids = [0] * len(words)
+                            _labels_c = ['O']*len(words)
+                            for i in range(start, end+1):
+                                segment_ids[i] = 1
+                                _labels_c[i] = labels_c[i]
+                            examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
                     guid_index += 1
                     words = []
                     labels_i, labels_c = [], []
@@ -90,14 +94,18 @@ def read_examples_from_file(data_dir, mode):
                     labels_c.append("O")
 
         if words:
-            entities = get_entities(labels_i)
-            for _, start, end in entities:
+            if mode!='train':
                 segment_ids = [0] * len(words)
-                _labels_c = ['O']*len(words)
-                for i in range(start, end+1):
-                    segment_ids[i] = 1
-                    _labels_c[i] = labels_c[i]
-                examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
+                examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
+            else:
+                entities = get_entities(labels_i)
+                for _, start, end in entities:
+                    segment_ids = [0] * len(words)
+                    _labels_c = ['O']*len(words)
+                    for i in range(start, end+1):
+                        segment_ids[i] = 1
+                        _labels_c[i] = labels_c[i]
+                    examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
     return examples
 
 

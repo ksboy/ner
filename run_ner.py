@@ -25,6 +25,8 @@ import random
 import numpy as np
 import torch
 from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
+from metrics import f1_score_i, precision_score_i, recall_score_i, accuracy_score_entity, accuracy_score_token
+from seqeval.metrics.sequence_labeling import get_entities
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -321,14 +323,21 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
     for i in range(out_label_ids.shape[0]):
         for j in range(out_label_ids.shape[1]):
             if out_label_ids[i, j] != pad_token_label_id:
-                out_label_list[i].append(label_map[out_label_ids[i][j]])
-                preds_list[i].append(label_map[preds[i][j]])
-
+                out_label = label_map[out_label_ids[i][j]]
+                out_label_list[i].append(out_label)
+                pred_label = label_map[preds[i][j]]
+                preds_list[i].append(pred_label)
+    
     results = {
         "loss": eval_loss,
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
         "f1": f1_score(out_label_list, preds_list),
+        "precision_i": precision_score_i(out_label_list, preds_list),
+        "recall_i": recall_score_i(out_label_list, preds_list),
+        "f1_i": f1_score_i(out_label_list, preds_list),
+        "accuracy_token_c": accuracy_score_token(out_label_list, preds_list),
+        "accuracy_entity_c": accuracy_score_entity(out_label_list, preds_list)
     }
     report = classification_report(out_label_list, preds_list, digits=4)
     

@@ -24,7 +24,9 @@ import random
 
 import numpy as np
 import torch
-from seqeval.metrics import f1_score, precision_score, recall_score
+from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
+from seqeval.metrics import accuracy_score as accuracy_score_token
+from metrics import accuracy_score_entity
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -327,6 +329,14 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
     out_label_list = [[] for _ in range(out_label_ids_i.shape[0])]
     preds_list = [[] for _ in range(out_label_ids_i.shape[0])]
 
+    # BIO标注，不包括实体类型
+    out_label_list_i = [[] for _ in range(out_label_ids_i.shape[0])]
+    preds_list_i = [[] for _ in range(out_label_ids_i.shape[0])]
+
+    # 实体类型+{O}
+    out_label_list_c = [[] for _ in range(out_label_ids_i.shape[0])]
+    preds_list_c = [[] for _ in range(out_label_ids_i.shape[0])]
+
     for i in range(out_label_ids_i.shape[0]):
         for j in range(out_label_ids_i.shape[1]):
             if out_label_ids_i[i, j] != pad_token_label_id:
@@ -338,6 +348,9 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
                     label = "O"
                 else:
                     label = label_i + "-" + label_c
+                out_label_list[i].append(label)
+                out_label_list_i[i].append(label_i)
+                out_label_list_c[i].append(label_c)
                 # pred
                 pred_i = label_map_i[preds_i[i][j]]
                 pred_c = label_map_c[preds_c[i][j]]
@@ -345,15 +358,20 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
                     pred = "O"
                 else:
                     pred = pred_i + "-" + pred_c
-
-                out_label_list[i].append(label)
                 preds_list[i].append(pred)
+                preds_list_i[i].append(pred_i)
+                preds_list_c[i].append(pred_c)
 
     results = {
         "loss": eval_loss,
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
         "f1": f1_score(out_label_list, preds_list),
+        "precision_i": precision_score(out_label_list_i, preds_list_i),
+        "recall_i": recall_score(out_label_list_i, preds_list_i),
+        "f1_i": f1_score(out_label_list_i, preds_list_i),
+        "accuracy_token_c": accuracy_score_token(out_label_list_c, preds_list_c),
+        "accuracy_entity_c": accuracy_score_entity(out_label_list, preds_list)
     }
 
     report = classification_report(out_label_list, preds_list, digits=4)

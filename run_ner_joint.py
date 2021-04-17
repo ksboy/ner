@@ -25,6 +25,7 @@ import random
 import numpy as np
 import torch
 from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
+from metrics import f1_score_i, precision_score_i, recall_score_i, accuracy_score_entity, accuracy_score_token
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -309,23 +310,24 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
 
     label_map_i = {i: label for i, label in enumerate(labels_i)}
     label_map_c = {i: label for i, label in enumerate(labels_c)}
+    label_map_c[pad_token_label_id]= 'O'
 
     out_label_list = [[] for _ in range(out_label_ids_i.shape[0])]
     preds_list = [[] for _ in range(out_label_ids_i.shape[0])]
 
     for i in range(out_label_ids_i.shape[0]):
         for j in range(out_label_ids_i.shape[1]):
-            if out_label_ids_i[i, j] != pad_token_label_id and out_label_ids_c[i, j] != pad_token_label_id:
+            if out_label_ids_i[i, j] != pad_token_label_id:
                 # label
                 label_i = label_map_i[out_label_ids_i[i][j]]
                 label_c = label_map_c[out_label_ids_c[i][j]]
-                if label_i =="O":
+                if label_i =="O" or label_c=="O":
                     label = "O"
                 else:
                     label = label_i + "-" + label_c
+                out_label_list[i].append(label)
                 
                 pred = preds[i][j]
-                out_label_list[i].append(label)
                 preds_list[i].append(pred)
 
     results = {
@@ -333,6 +335,11 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
         "f1": f1_score(out_label_list, preds_list),
+        "precision_i": precision_score_i(out_label_list, preds_list),
+        "recall_i": recall_score_i(out_label_list, preds_list),
+        "f1_i": f1_score_i(out_label_list, preds_list),
+        "accuracy_token_c": accuracy_score_token(out_label_list, preds_list),
+        "accuracy_entity_c": accuracy_score_entity(out_label_list, preds_list)
     }
     report = classification_report(out_label_list, preds_list, digits=4)
     
