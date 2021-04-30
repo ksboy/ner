@@ -42,8 +42,8 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationMultiTask as AutoModelForTokenClassification
-from utils_ner_multi_task import convert_examples_to_features, read_examples_from_file, get_labels, write_file
-
+from utils_ner_multi_task import convert_examples_to_features, read_examples_from_file
+from utils import get_labels, write_file
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
@@ -180,15 +180,14 @@ def train(args, train_dataset, model, tokenizer, labels_i, labels_c, pad_token_l
                 )  # XLM and RoBERTa don"t use segment_ids
 
             outputs = model(**inputs)
-            (loss_i, loss_c) = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
-            loss = loss_i + loss_c
+            loss, loss_i, loss_c = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
             
-            logger.info("loss: %f", loss.item()) 
+            logger.info("loss: %f, loss_i: %f, loss_c: %f", loss.item(), loss_i.item(), loss_c.item()) 
             if args.fp16:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -300,8 +299,7 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
                     batch[2] if args.model_type in ["bert", "xlnet"] else None
                 )  # XLM and RoBERTa don"t use segment_ids
             outputs = model(**inputs)
-            (loss_i, loss_c), (logits_i, logits_c) = outputs[:2]
-            tmp_eval_loss = loss_i+ loss_c
+            (tmp_eval_loss, tmp_eval_loss_i, tmp_eval_loss_c), (logits_i, logits_c) = outputs[:2]
 
             if args.n_gpu > 1:
                 tmp_eval_loss = tmp_eval_loss.mean()  # mean() to average on multi-gpu parallel evaluating
@@ -419,9 +417,9 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
             pad_token_segment_id=4 if args.model_type in ["xlnet"] else 0,
             pad_token_label_id=pad_token_label_id,
         )
-        if args.local_rank in [-1, 0]:
-            logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(features, cached_features_file)
+        # if args.local_rank in [-1, 0]:
+        #     logger.info("Saving features into cached file %s", cached_features_file)
+            # torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
@@ -578,6 +576,8 @@ def main():
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
     parser.add_argument("--server_ip", type=str, default="", help="For distant debugging.")
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
+
+    parser.add_argument("--loss", type=str, default="", help="For distant debugging.")
     args = parser.parse_args()
 
     if (
@@ -661,6 +661,7 @@ def main():
     config.label2id_c={label: i for i, label in enumerate(labels_c)}
     config.id2label_i={str(i): label for i, label in enumerate(labels_i)}
     config.label2id_i={label: i for i, label in enumerate(labels_i)}
+    config.loss = args.loss
 
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,

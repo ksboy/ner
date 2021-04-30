@@ -65,3 +65,10 @@ def accuracy_score_entity(y_true, y_pred):
     nb_true = sum(y_t == y_p for y_t, y_p in zip(_entities_true, _entities_true))
     score = nb_correct / nb_true
     return score
+
+if __name__ == "__main__":
+    y_true = [['O', 'O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-LOC', 'I-LOC', 'O']]
+    y_pred = [['O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+    acc = accuracy_score_entity(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+    print(acc, f1)

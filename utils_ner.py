@@ -53,12 +53,14 @@ def read_examples_from_file(data_dir, mode):
     file_path = os.path.join(data_dir, "{}.txt".format(mode))
     guid_index = 1
     examples = []
+    tmp = []
     with open(file_path, encoding="utf-8") as f:
         words = []
         labels = []
         for line in f:
             if line.startswith("-DOCSTART-") or line == "" or line == "\n":
                 if words:
+                    tmp.extend(labels)
                     examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, labels=labels))
                     guid_index += 1
                     words = []
@@ -72,7 +74,9 @@ def read_examples_from_file(data_dir, mode):
                     # Examples could have no label for mode = "test"
                     labels.append("O")
         if words:
+            tmp.extend(labels)
             examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, labels=labels))
+    print(len(set(tmp)), set(tmp))
     return examples
 
 
@@ -115,8 +119,14 @@ def convert_examples_to_features(
             # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
             if len(word_tokens) > 0:
                 tokens.extend(word_tokens)
+                # # Use the real label id for all token of the word
+                # label_ids.extend([label_map[label]] * len(word_tokens))
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
                 label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
+
+                # # only use the first token of the word
+                # tokens.append(word_tokens[0])
+                # label_ids.append(label_map[label])
 
         # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
         special_tokens_count = tokenizer.num_special_tokens_to_add()
@@ -196,19 +206,3 @@ def convert_examples_to_features(
             InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, label_ids=label_ids)
         )
     return features
-
-def write_file(datas, output_file):
-    with open(output_file, 'w', encoding='utf-8') as f:
-        for obj in datas:
-            json.dump(obj, f, ensure_ascii=False, sort_keys=True)
-            f.write("\n")
-
-def get_labels(path):
-    if path:
-        with open(path, "r") as f:
-            labels = f.read().splitlines()
-        if "O" not in labels:
-            labels = ["O"] + labels
-        return labels
-    else:
-        return ["O", "B-MISC", "I-MISC", "B-PER", "I-PER", "B-ORG", "I-ORG", "B-LOC", "I-LOC"]

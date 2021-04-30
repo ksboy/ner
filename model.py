@@ -20,6 +20,10 @@ class BertForTokenClassificationMultiTask(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.identifier = nn.Linear(config.hidden_size, self.num_labels_i)
         self.classifier = nn.Linear(config.hidden_size, self.num_labels_c)
+        self.loss = config.loss
+        if self.loss == "weightedLoss":
+            self.log_var_a = torch.nn.Parameter(torch.zeros((1,), requires_grad=True))
+            self.log_var_b = torch.nn.Parameter(torch.zeros((1,), requires_grad=True))
 
         self.init_weights()
 
@@ -79,7 +83,14 @@ class BertForTokenClassificationMultiTask(BertPreTrainedModel):
                 loss_c = loss_fct(active_logits_c, active_labels_c)
             else:
                 loss_c = loss_fct(logits_c.view(-1, self.num_labels_c), labels_c.view(-1))
-        outputs = ([loss_i, loss_c],) + ([logits_i, logits_c],) + outputs
+
+        if self.loss == "weightedLoss":
+            loss_a = torch.sum(torch.exp(- self.log_var_a) * loss_i + self.log_var_a, -1)
+            loss_b = torch.sum(torch.exp(- self.log_var_a) * loss_c + self.log_var_a, -1)
+            outputs = ([loss_a + loss_b, loss_a, loss_b],)  + ([logits_i, logits_c],) + outputs
+        else:
+            outputs = ([loss_i + loss_c, loss_i, loss_c],)  + ([logits_i, logits_c],) + outputs
+
         return outputs  # (loss), scores, (hidden_states), (attentions)
     
 
@@ -97,6 +108,8 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.identifier = nn.Linear(config.hidden_size, self.num_labels_i)
         self.classifier = nn.Linear(config.hidden_size, self.num_labels_c)
+        # self.bilstm = nn.LSTM(bidirectional=True, num_layers=2, input_size=config.hidden_size//2, hidden_size=config.hidden_size, batch_first=True )
+        self.pad_token_label_id = config.pad_token_label_id
 
         self.init_weights()
 
@@ -157,7 +170,7 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
                 loss_c = loss_fct(active_logits_c, active_labels_c)
             else:
                 loss_c = loss_fct(logits_c.view(-1, self.num_labels_c), labels_c.view(-1))
-        outputs = ([loss_i, loss_c],) + ([logits_i, logits_c],) + outputs
+        outputs = ([loss_i + loss_c, loss_i, loss_c],) + ([logits_i, logits_c],) + outputs
         return outputs  # (loss), scores, (hidden_states), (attentions)
     
 
@@ -167,13 +180,27 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
         vf = np.vectorize(lambda x:self.config.id2label_i[str(x)])
         return vf(batch_preds_i).tolist()
 
-    def classify(self, batch_preds_i, sequence_output):
+    def classify(self, batch_preds_i, labels_i, sequence_output):
+        # 去除 无关 token
+        # mask = labels_i != self.pad_token_label_id
+        batch_size, sequence_length, hidden_size = sequence_output.shape
+        
+        valid_sequence_output = torch.zeros_like(sequence_output)
+        valid_batch_preds_i = [[] for _ in range(batch_size)]
+        for i in range(batch_size):
+            k = -1
+            for j in range(sequence_length):
+                if labels_i[i][j].item() != self.pad_token_label_id:
+                    k += 1
+                    valid_sequence_output[i][k] = sequence_output[i][j]
+                    valid_batch_preds_i[i].append(batch_preds_i[i][j])
+
         batch_entity_list = []
-        for preds_i in batch_preds_i:
+        for preds_i in valid_batch_preds_i:
             entity_list = get_entities(preds_i)
             batch_entity_list.append(entity_list)
 
-        for entity_list, preds_i, context_embedding in zip(batch_entity_list, batch_preds_i, sequence_output):
+        for entity_list, preds_i, context_embedding in zip(batch_entity_list, valid_batch_preds_i, valid_sequence_output):
             for entity in entity_list:
                 _, start, end = entity
                 entity_embedding = []
@@ -186,7 +213,7 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
                 entity_type = self.config.id2label_c[str(pred_c)]
                 for j in range(start, end+1):
                     preds_i[j]+= "-"+entity_type
-        return batch_preds_i
+        return valid_batch_preds_i
 
     def predict(
         self,
@@ -209,9 +236,7 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
             inputs_embeds=inputs_embeds,
         )
         sequence_output = outputs[0]
-        outputs = outputs[2:]
 
-        result = []
         batch_preds_i = self.identify(sequence_output)
-        batch_preds_c = self.classify(batch_preds_i, sequence_output)
+        batch_preds_c = self.classify(batch_preds_i, labels_i, sequence_output)
         return batch_preds_c  # (loss), scores, (hidden_states), (attentions)

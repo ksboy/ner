@@ -9,6 +9,6 @@
 # deepset/bert-large-uncased-whole-word-masking-squad2
 # tokenizer = BertTokenizer.from_pretrained("/home/whou/workspace/pretrained_models/bert-base-cased")
 # print(tokenizer.tokenize("BRUSSELS"))
-# from seqeval.metrics.sequence_labeling import get_entities
-# entities = get_entities(['B-PER', 'I-LOC', 'O', 'B-LOC'])
-# print(entities)
+from seqeval.metrics.sequence_labeling import get_entities
+entities = get_entities(['B-LOC', 'B-LOC', 'O', 'I-LOC'])
+print(entities)

@@ -1,18 +1,22 @@
+DATASET=ontonotes-5.0
 MAX_LENGTH=128
 BERT_MODEL=/home/whou/workspace/pretrained_models/bert-base-cased
-OUTPUT_DIR=./output/ner_joint
+# BERT_MODEL=./output/ner_joint/checkpoint-best/
+OUTPUT_DIR=./output/$DATASET/ner_multi_task
 BATCH_SIZE=32
 EVAL_BATCH_SIZE=64
-NUM_EPOCHS=45
+NUM_EPOCHS=20
 WARMUP_STEPS=300
 SAVE_STEPS=300
 SEED=1
 LR=3e-5
 
-mkdir -p $OUTPUT_DIR 
+mkdir -p $OUTPUT_DIR
+# CUDA_VISIBLE_DEVICES=0  python3 run_ner.py  \
 # CUDA_VISIBLE_DEVICES=0 python3 -m debugpy --listen 0.0.0.0:8888 --wait-for-client ./run_ner_joint.py \
-CUDA_VISIBLE_DEVICES=0  python3 run_ner_joint.py  \
---data_dir ./data/conll-2003 \
+CUDA_VISIBLE_DEVICES=0  python3 run_ner_multi_task.py  \
+--data_dir ./data/$DATASET \
+--labels ./data/$DATASET/labels.txt \
 --model_type bert \
 --model_name_or_path $BERT_MODEL \
 --output_dir $OUTPUT_DIR \
@@ -25,7 +29,7 @@ CUDA_VISIBLE_DEVICES=0  python3 run_ner_joint.py  \
 --do_eval \
 --do_predict \
 --evaluate_during_training \
---early_stop 5 \
+--early_stop 3 \
 --learning_rate $LR \
 --weight_decay 0 \
 --warmup_steps $WARMUP_STEPS \

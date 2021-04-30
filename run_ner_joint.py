@@ -40,8 +40,8 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationJoint as AutoModelForTokenClassification
-from utils_ner_joint import convert_examples_to_features, read_examples_from_file, get_labels, write_file
-
+from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+from utils import get_labels, write_file
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
@@ -178,15 +178,14 @@ def train(args, train_dataset, model, tokenizer, labels_i, labels_c, pad_token_l
                 )  # XLM and RoBERTa don"t use segment_ids
 
             outputs = model(**inputs)
-            (loss_i, loss_c) = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
-            loss = loss_i + loss_c
+            loss, loss_i, loss_c = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
 
             if args.n_gpu > 1:
                 loss = loss.mean()  # mean() to average on multi-gpu parallel training
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
             
-            logger.info("loss: %f", loss.item()) 
+            logger.info("loss: %f, loss_i: %f, loss_c: %f", loss.item(), loss_i.item(), loss_c.item()) 
             if args.fp16:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
@@ -304,7 +303,7 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
             out_label_ids_i = inputs["labels_i"].detach().cpu().numpy()
             out_label_ids_c = inputs["labels_c"].detach().cpu().numpy()
         else:
-            preds = np.append(preds, batch_preds, axis=0)
+            preds.extend(batch_preds)
             out_label_ids_i = np.append(out_label_ids_i, inputs["labels_i"].detach().cpu().numpy(), axis=0)
             out_label_ids_c = np.append(out_label_ids_c, inputs["labels_c"].detach().cpu().numpy(), axis=0)
 
@@ -313,7 +312,7 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
     label_map_c[pad_token_label_id]= 'O'
 
     out_label_list = [[] for _ in range(out_label_ids_i.shape[0])]
-    preds_list = [[] for _ in range(out_label_ids_i.shape[0])]
+    preds_list = preds
 
     for i in range(out_label_ids_i.shape[0]):
         for j in range(out_label_ids_i.shape[1]):
@@ -326,9 +325,9 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
                 else:
                     label = label_i + "-" + label_c
                 out_label_list[i].append(label)
-                
-                pred = preds[i][j]
-                preds_list[i].append(pred)
+    
+    for i in range(out_label_ids_i.shape[0]):
+        assert len(out_label_list[i])==len(preds[i])
 
     results = {
         "loss": eval_loss,
@@ -628,6 +627,7 @@ def main():
     config.label2id_c={label: i for i, label in enumerate(labels_c)}
     config.id2label_i={str(i): label for i, label in enumerate(labels_i)}
     config.label2id_i={label: i for i, label in enumerate(labels_i)}
+    config.pad_token_label_id = pad_token_label_id
 
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,

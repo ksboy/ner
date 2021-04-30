@@ -221,21 +221,3 @@ def convert_examples_to_features(
         )
     return features
 
-def write_file(datas, output_file):
-    with open(output_file, 'w', encoding='utf-8') as f:
-        for obj in datas:
-            json.dump(obj, f, ensure_ascii=False, sort_keys=True)
-            f.write("\n")
-
-def get_labels(path, mode="classification"):
-    if path:
-        with open(path, "r") as f:
-            labels = f.read().splitlines()
-        if "O" not in labels:
-            labels = ["O"] + labels
-        return labels
-    else:
-        if mode=="classification":
-            return ["MISC", "PER", "ORG", "LOC", "O"]
-        elif mode=="identification":
-            return ["B","I","O"]

@@ -41,7 +41,8 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
 )
-from utils_ner import convert_examples_to_features, read_examples_from_file, get_labels, write_file
+from utils_ner import convert_examples_to_features, read_examples_from_file
+from utils import get_labels, write_file
 
 try:
     from torch.utils.tensorboard import SummaryWriter
