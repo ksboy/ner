@@ -1,3 +1,4 @@
+from numpy.core.numeric import NaN
 from transformers import BertForTokenClassification
 import torch
 from torch import nn
@@ -153,7 +154,7 @@ class BertForTokenClassificationJoint(BertPreTrainedModel):
         
         # classification
         mask = token_type_ids.unsqueeze(-1).expand_as(sequence_output).bool()
-        entity_embedding = torch.sum(sequence_output * mask, dim=1) / torch.sum(mask, dim=1)
+        entity_embedding = torch.sum(sequence_output * mask, dim=1) / (torch.sum(mask, dim=1)+ 1e-8)
         # batch_size, hidden_size = entity_embedding.shape
 
         logits_c = self.classifier(entity_embedding.unsqueeze(1))

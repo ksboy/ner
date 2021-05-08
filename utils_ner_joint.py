@@ -79,6 +79,9 @@ def read_examples_from_file(data_dir, mode):
                     labels_i, labels_c = [], []
             else:
                 splits = line.split(" ")
+                if len(splits)!=4:
+                    print(line)
+                assert len(splits)==4
                 words.append(splits[0])
                 if len(splits) > 1:
                     label = splits[-1].replace("\n", "")
