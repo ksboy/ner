@@ -66,7 +66,7 @@ def read_examples_from_file(data_dir, mode):
                     words = []
                     labels_i, labels_c = [], []
             else:
-                splits = line.split(" ")
+                splits = line.split() # ' 'or \t
                 words.append(splits[0])
                 if len(splits) > 1:
                     label = splits[-1].replace("\n", "")
@@ -74,8 +74,8 @@ def read_examples_from_file(data_dir, mode):
                         labels_i.append("O")
                         labels_c.append("O")
                     else:
-                        labels_i.append(label.split("-")[0])
-                        labels_c.append(label.split("-")[1])
+                        labels_i.append(label.split("-", 1)[0])
+                        labels_c.append(label.split("-", 1)[1])
                 else:
                     # Examples could have no label for mode = "test"
                     labels_i.append("O")

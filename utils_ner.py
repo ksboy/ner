@@ -66,7 +66,7 @@ def read_examples_from_file(data_dir, mode):
                     words = []
                     labels = []
             else:
-                splits = line.split(" ")
+                splits = line.split()
                 words.append(splits[0])
                 if len(splits) > 1:
                     labels.append(splits[-1].replace("\n", ""))

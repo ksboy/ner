@@ -19,24 +19,23 @@
 import logging
 import os
 import json
-from seqeval.metrics.sequence_labeling import get_entities
+
 logger = logging.getLogger(__name__)
 
 
 class InputExample(object):
     """A single training/test example for token classification."""
 
-    def __init__(self, guid, words, segment_ids, labels_i, labels_c):
+    def __init__(self, id, words, labels_i, labels_c):
         """Constructs a InputExample.
         Args:
-            guid: Unique id for the example.
+            id: Unique id for the example.
             words: list. The words of the sequence.
             labels: (Optional) list. The labels for each word of the sequence. This should be
             specified for train and dev examples, but not for test examples.
         """
-        self.guid = guid
+        self.id = id
         self.words = words
-        self.segment_ids = segment_ids # 目标trigger位置
         self.labels_i = labels_i
         self.labels_c = labels_c
 
@@ -52,64 +51,123 @@ class InputFeatures(object):
         self.label_ids_c = label_ids_c
 
 
-def read_examples_from_file(data_dir, mode):
-    file_path = os.path.join(data_dir, "{}.txt".format(mode))
-    guid_index = 1
-    examples = []
-    with open(file_path, encoding="utf-8") as f:
-        words = []
-        labels_i, labels_c = [], []
-        for line in f:
-            if line.startswith("-DOCSTART-") or line == "" or line == "\n":
-                if words:
-                    if mode!='train':
-                        segment_ids = [0] * len(words)
-                        examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
-                    else:
-                        entities = get_entities(labels_i)
-                        for _, start, end in entities:
-                            segment_ids = [0] * len(words)
-                            _labels_c = ['O']*len(words)
-                            for i in range(start, end+1):
-                                segment_ids[i] = 1
-                                _labels_c[i] = labels_c[i]
-                            examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
-                    guid_index += 1
-                    words = []
-                    labels_i, labels_c = [], []
-            else:
-                splits = line.split()
-                # if len(splits)!=4:
-                #     print(line)
-                # assert len(splits)==4
-                words.append(splits[0])
-                if len(splits) > 1:
-                    label = splits[-1].replace("\n", "")
-                    if len(label)==1:
-                        labels_i.append("O")
-                        labels_c.append("O")
-                    else:
-                        labels_i.append(label.split("-", 1)[0])
-                        labels_c.append(label.split("-", 1)[1])
-                else:
-                    # Examples could have no label for mode = "test"
-                    labels_i.append("O")
-                    labels_c.append("O")
+## lic 格式
+def trigger_process_bio_lic(input_file, is_predict=False):
+    rows = open(input_file, encoding='utf-8').read().splitlines()
+    results = []
+    for row in rows:
+        if len(row)==1: print(row)
+        row = json.loads(row)
+        labels = ['O']*len(row["text"])
+        if is_predict: 
+            results.append({"id":row["id"], "words":list(row["text"]), "labels":labels})
+            continue
+        for event in row["event_list"]:
+            trigger = event["trigger"]
+            event_type = event["event_type"]
+            trigger_start_index = event["trigger_start_index"]
+            labels[trigger_start_index]= "B-{}".format(event_type)
+            for i in range(1, len(trigger)):
+                labels[trigger_start_index+i]= "I-{}".format(event_type)
+                # labels[trigger_start_index+i]= "I-{}".format("触发词")
+        results.append({"id":row["id"], "words":list(row["text"]), "labels":labels})
+    # write_file(results,output_file)
+    return results
 
-        if words:
-            if mode!='train':
-                segment_ids = [0] * len(words)
-                examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
-            else:
-                entities = get_entities(labels_i)
-                for _, start, end in entities:
-                    segment_ids = [0] * len(words)
-                    _labels_c = ['O']*len(words)
-                    for i in range(start, end+1):
-                        segment_ids[i] = 1
-                        _labels_c[i] = labels_c[i]
-                    examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
-    return examples
+## ccks格式
+def trigger_process_bio_ccks(input_file, is_predict=False):
+    rows = open(input_file, encoding='utf-8').read().splitlines()
+    results = []
+    for row in rows:
+        if len(row)==1: print(row)
+        row = json.loads(row)
+        labels = ['O']*len(row["content"])
+        if is_predict: 
+            results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+            continue
+        for event in row["events"]:
+            event_type = event["type"]
+            for mention in event["mentions"]:
+                if mention["role"]=="trigger":
+                    trigger = mention["word"]
+                    trigger_start_index, trigger_end_index = mention["span"]
+                    labels[trigger_start_index]= "B-{}".format(event_type)
+                    for i in range(trigger_start_index+1, trigger_end_index):
+                        labels[i]= "I-{}".format(event_type)
+                        # labels[i]= "I-{}".format("触发词")
+                    break
+        results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+    # write_file(results,output_file)
+    return results
+
+## lic格式
+def role_process_bio_lic(input_file, add_event_type_to_role=False, is_predict=False):
+    rows = open(input_file, encoding='utf-8').read().splitlines()
+    results = []
+    for row in rows:
+        if len(row)==1: print(row)
+        row = json.loads(row)
+        labels = ['O']*len(row["text"])
+        if is_predict: 
+            results.append({"id":row["id"], "words":list(row["text"]), "labels":labels})
+            continue
+        for event in row["event_list"]:
+            # print(event)
+            event_type = event["event_type"]
+            for arg in event["arguments"]:
+                role = arg['role']
+                if add_event_type_to_role: role = event_type + '-' + role
+                argument = arg['argument']
+                argument_start_index = arg["argument_start_index"]
+                labels[argument_start_index]= "B-{}".format(role)
+                for i in range(1, len(argument)):
+                    labels[argument_start_index+i]= "I-{}".format(role)
+                # if arg['alias']!=[]: print(arg['alias'])
+        results.append({"id":row["id"], "words":list(row["text"]), "labels":labels})
+    # write_file(results,output_file)
+    return results
+
+## ccks格式
+def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=False):
+    rows = open(input_file, encoding='utf-8').read().splitlines()
+    results = []
+    for row in rows:
+        if len(row)==1: print(row)
+        row = json.loads(row)
+        # labels = ['O']*len(row["content"])
+        labels_i = ['O']*len(row["content"])
+        labels_c = ['O']*len(row["content"])
+        if is_predict:
+            results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
+            continue
+        for event in row["events"]:
+            event_type = event["type"]
+            for arg in event["mentions"]:
+                role = arg['role']
+                if role=="trigger": continue
+                if add_event_type_to_role: role = event_type + '-' + role
+                argument_start_index, argument_end_index = arg["span"]
+                # labels[argument_start_index]= "B-{}".format(role)
+                labels_i[argument_start_index]= "B"
+                labels_c[argument_start_index]= role
+                for i in range(argument_start_index+1, argument_end_index):
+                    # labels[i]= "I-{}".format(role)
+                    labels_i[i]= "I"
+                    labels_c[i]= role
+                # if arg['alias']!=[]: print(arg['alias'])
+                results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
+    # write_file(results,output_file)
+    return results
+
+def read_examples_from_file(data_dir, mode, task='role', dataset="ccks"):
+    file_path = os.path.join(data_dir, "{}.json".format(mode))
+    if dataset=="ccks":
+        if task=='trigger': items = trigger_process_bio_ccks(file_path)
+        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True, is_predict=mode=='train')
+    elif dataset=="lic":
+        if task=='trigger': items = trigger_process_bio_lic(file_path)
+        elif task=='role': items = role_process_bio_lic(file_path, add_event_type_to_role=True)
+    return [InputExample(**item) for item in items]
 
 
 def convert_examples_to_features(
@@ -128,7 +186,6 @@ def convert_examples_to_features(
     pad_token_segment_id=0,
     pad_token_label_id=-100,
     sequence_a_segment_id=0,
-    trigger_token_segment_id = 1,
     mask_padding_with_zero=True,
 ):
     """ Loads a data file into a list of `InputBatch`s
@@ -140,7 +197,6 @@ def convert_examples_to_features(
 
     label_map_i = {label: i for i, label in enumerate(label_list_i)}
     label_map_c = {label: i for i, label in enumerate(label_list_c)}
-    label_map_c['O']= pad_token_label_id
 
     features = []
     for (ex_index, example) in enumerate(examples):
@@ -148,16 +204,14 @@ def convert_examples_to_features(
             logger.info("Writing example %d of %d", ex_index, len(examples))
 
         tokens = []
-        segment_ids= []
         label_ids_i = []
         label_ids_c = []
-        for word, segment_id, label_i, label_c in zip(example.words, example.segment_ids, example.labels_i, example.labels_c):
+        for word, label_i, label_c in zip(example.words, example.labels_i, example.labels_c):
             word_tokens = tokenizer.tokenize(word)
 
             # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
             if len(word_tokens) > 0:
                 tokens.extend(word_tokens)
-                segment_ids.extend([sequence_a_segment_id if not segment_id else trigger_token_segment_id]+ [sequence_a_segment_id] * (len(word_tokens) - 1))
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
                 label_ids_i.extend([label_map_i[label_i]] + [pad_token_label_id] * (len(word_tokens) - 1))
                 label_ids_c.extend([label_map_c[label_c]] + [pad_token_label_id] * (len(word_tokens) - 1))
@@ -168,7 +222,6 @@ def convert_examples_to_features(
             tokens = tokens[: (max_seq_length - special_tokens_count)]
             label_ids_i = label_ids_i[: (max_seq_length - special_tokens_count)]
             label_ids_c = label_ids_c[: (max_seq_length - special_tokens_count)]
-            segment_ids = segment_ids[: (max_seq_length - special_tokens_count)]
 
         # The convention in BERT is:
         # (a) For sequence pairs:
@@ -191,13 +244,12 @@ def convert_examples_to_features(
         tokens += [sep_token]
         label_ids_i += [pad_token_label_id]
         label_ids_c += [pad_token_label_id]
-        segment_ids += [sequence_a_segment_id]
         if sep_token_extra:
             # roberta uses an extra separator b/w pairs of sentences
             tokens += [sep_token]
             label_ids_i += [pad_token_label_id]
             label_ids_c += [pad_token_label_id]
-            segment_ids += [sequence_a_segment_id]
+        segment_ids = [sequence_a_segment_id] * len(tokens)
 
         if cls_token_at_end:
             tokens += [cls_token]
@@ -239,7 +291,7 @@ def convert_examples_to_features(
 
         if ex_index < 5:
             logger.info("*** Example ***")
-            logger.info("guid: %s", example.guid)
+            logger.info("id: %s", example.id)
             logger.info("tokens: %s", " ".join([str(x) for x in tokens]))
             logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
             logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))

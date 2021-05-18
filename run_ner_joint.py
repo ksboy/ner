@@ -40,8 +40,12 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationJoint as AutoModelForTokenClassification
-from utils_ner_joint import convert_examples_to_features, read_examples_from_file
-from utils import get_labels, write_file
+# from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+# from utils import get_labels_ner as get_labels
+from utils import get_labels_ee as get_labels
+
+from utils import write_file
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
@@ -93,13 +97,13 @@ def train(args, train_dataset, model, tokenizer, labels_i, labels_c, pad_token_l
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
 
-    # Check if saved optimizer or scheduler states exist
-    if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
-        os.path.join(args.model_name_or_path, "scheduler.pt")
-    ):
-        # Load in optimizer and scheduler states
-        optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
-        scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
+    # # Check if saved optimizer or scheduler states exist
+    # if os.path.isfile(os.path.join(args.model_name_or_path, "optimizer.pt")) and os.path.isfile(
+    #     os.path.join(args.model_name_or_path, "scheduler.pt")
+    # ):
+    #     # Load in optimizer and scheduler states
+    #     optimizer.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "optimizer.pt")))
+    #     scheduler.load_state_dict(torch.load(os.path.join(args.model_name_or_path, "scheduler.pt")))
 
     if args.fp16:
         try:
@@ -408,6 +412,20 @@ def main():
 
     # Required parameters
     parser.add_argument(
+        "--dataset",
+        default=None,
+        type=str,
+        required=True,
+        help="The dataset name.",
+    )
+    parser.add_argument(
+        "--task",
+        default=None,
+        type=str,
+        required=False,
+        help="The task name.",
+    )
+    parser.add_argument(
         "--data_dir",
         default=None,
         type=str,
@@ -546,6 +564,13 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     args = parser.parse_args()
 
+    # if args.dataset in ['lic', 'ccks']:
+    #     from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+    #     from utils import get_labels_ee as get_labels
+    # elif args.dataset in ['conll-2003', 'ontonotes-5.0', 'support-wnut-5shot']:
+    #     from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+    #     from utils import get_labels_ner as get_labels
+
     if (
         os.path.exists(args.output_dir)
         and os.listdir(args.output_dir)
@@ -598,7 +623,7 @@ def main():
 
     # Prepare CONLL-2003 task
     labels_i = get_labels(args.labels, mode="identification")
-    labels_c = get_labels(args.labels, mode="classification")
+    labels_c = get_labels(args.labels, mode="classification") + ['O']
     num_labels_i = len(labels_i)
     num_labels_c = len(labels_c)
     # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later
@@ -629,10 +654,18 @@ def main():
     config.label2id_i={label: i for i, label in enumerate(labels_i)}
     config.pad_token_label_id = pad_token_label_id
 
+    unexpected_keys = ['classifier.weight', 'classifier.bias']
+    state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
+    # for key in state_dict.keys():
+    #     print(key)
+    for key in unexpected_keys:
+        state_dict.pop(key, None)
+
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,
         from_tf=bool(".ckpt" in args.model_name_or_path),
         config=config,
+        state_dict = state_dict,
         cache_dir=args.cache_dir if args.cache_dir else None,
     )
 

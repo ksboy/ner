@@ -63,7 +63,7 @@ def accuracy_score_entity(y_true, y_pred):
             _entities_pred.append([i] + entity[1:])
     nb_correct = sum(y_t == y_p for y_t, y_p in zip(entities_true, entities_true))
     nb_true = sum(y_t == y_p for y_t, y_p in zip(_entities_true, _entities_true))
-    score = nb_correct / nb_true
+    score = nb_correct / nb_true if nb_true else 0
     return score
 
 if __name__ == "__main__":

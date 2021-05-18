@@ -1,28 +1,28 @@
-DATASET=ccks
+DATASET=support-wnut-5shot
 TASK=role
-DATA_DIR=./data/FewFC-main/rearranged/trans
-MAX_LENGTH=256
+DATA_DIR=./data/
+MAX_LENGTH=128
 # BERT_MODEL=/home/whou/workspace/pretrained_models/bert-base-cased
-BERT_MODEL=/home/whou/workspace/pretrained_models/chinese_bert_wwm_ext_pytorch/
-# BERT_MODEL=./output/ner_joint/checkpoint-best/
-OUTPUT_DIR=./output/$DATASET/multi_task/trans
+# BERT_MODEL=/home/whou/workspace/pretrained_models/chinese_bert_wwm_ext_pytorch/
+BERT_MODEL=./output/conll-2003/ner/checkpoint-best/
+OUTPUT_DIR=./output/$DATASET/ner/
 BATCH_SIZE=16
 EVAL_BATCH_SIZE=64
 NUM_EPOCHS=10000
 WARMUP_STEPS=100
 SAVE_STEPS=100
 SEED=1
-LR=3e-5
+LR=2e-5
 
 mkdir -p $OUTPUT_DIR
 # CUDA_VISIBLE_DEVICES=0 python3 run_ner.py  \
-# CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_joint.py  \
-# CUDA_VISIBLE_DEVICES=1 python3 -m debugpy --listen 0.0.0.0:8888 --wait-for-client ./run_ner_joint.py \
-CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_multi_task.py  \
+# CUDA_VISIBLE_DEVICES=0 python3 -u run_ner_joint.py  \
+# CUDA_VISIBLE_DEVICES=0 python3 -m debugpy --listen 0.0.0.0:8888 --wait-for-client ./run_ner_multi_task.py \
+CUDA_VISIBLE_DEVICES=0 python3 -u run_ner.py  \
 --dataset $DATASET \
 --task $TASK \
---data_dir $DATA_DIR \
---labels ./data/FewFC-main/event_schema/trans.json \
+--data_dir $DATA_DIR/$DATASET \
+--labels $DATA_DIR/$DATASET/labels.txt \
 --model_type bert \
 --model_name_or_path $BERT_MODEL \
 --output_dir $OUTPUT_DIR \
