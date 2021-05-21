@@ -422,9 +422,9 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
             pad_token_segment_id=4 if args.model_type in ["xlnet"] else 0,
             pad_token_label_id=pad_token_label_id,
         )
-        # if args.local_rank in [-1, 0]:
-        #     logger.info("Saving features into cached file %s", cached_features_file)
-            # torch.save(features, cached_features_file)
+        if args.local_rank in [-1, 0] and not args.overwrite_cache:
+            logger.info("Saving features into cached file %s", cached_features_file)
+            torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
@@ -659,6 +659,8 @@ def main():
     # Prepare CONLL-2003 task
     labels_i = get_labels(args.labels, mode="identification")
     labels_c = get_labels(args.labels, mode="classification") + ['O']
+    print(labels_c, labels_i)
+
     num_labels_i = len(labels_i)
     num_labels_c = len(labels_c)
     # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later

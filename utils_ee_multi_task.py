@@ -163,7 +163,7 @@ def read_examples_from_file(data_dir, mode, task='role', dataset="ccks"):
     file_path = os.path.join(data_dir, "{}.json".format(mode))
     if dataset=="ccks":
         if task=='trigger': items = trigger_process_bio_ccks(file_path)
-        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True, is_predict=mode=='train')
+        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True)
     elif dataset=="lic":
         if task=='trigger': items = trigger_process_bio_lic(file_path)
         elif task=='role': items = role_process_bio_lic(file_path, add_event_type_to_role=True)

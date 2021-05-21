@@ -40,10 +40,10 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationJoint as AutoModelForTokenClassification
-# from utils_ner_joint import convert_examples_to_features, read_examples_from_file
-from utils_ee_joint import convert_examples_to_features, read_examples_from_file
-# from utils import get_labels_ner as get_labels
-from utils import get_labels_ee as get_labels
+from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+# from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+from utils import get_labels_ner as get_labels
+# from utils import get_labels_ee as get_labels
 
 from utils import write_file
 try:
@@ -389,7 +389,7 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
             pad_token_segment_id=4 if args.model_type in ["xlnet"] else 0,
             pad_token_label_id=pad_token_label_id,
         )
-        if args.local_rank in [-1, 0]:
+        if args.local_rank in [-1, 0] and not args.overwrite_cache:
             logger.info("Saving features into cached file %s", cached_features_file)
             torch.save(features, cached_features_file)
 
@@ -624,6 +624,8 @@ def main():
     # Prepare CONLL-2003 task
     labels_i = get_labels(args.labels, mode="identification")
     labels_c = get_labels(args.labels, mode="classification") + ['O']
+    print(labels_c, labels_i)
+    
     num_labels_i = len(labels_i)
     num_labels_c = len(labels_c)
     # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later
@@ -653,13 +655,16 @@ def main():
     config.id2label_i={str(i): label for i, label in enumerate(labels_i)}
     config.label2id_i={label: i for i, label in enumerate(labels_i)}
     config.pad_token_label_id = pad_token_label_id
-
-    unexpected_keys = ['classifier.weight', 'classifier.bias']
-    state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
-    # for key in state_dict.keys():
-    #     print(key)
-    for key in unexpected_keys:
-        state_dict.pop(key, None)
+    
+    if os.path.exists(os.path.join(args.model_name_or_path, "pytorch_model.bin")):
+        unexpected_keys = ['classifier.weight', 'classifier.bias']
+        state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
+        # for key in state_dict.keys():
+        #     print(key)
+        for key in unexpected_keys:
+            state_dict.pop(key, None)
+    else:
+        state_dict = None
 
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,
