@@ -179,7 +179,7 @@ def train(args, train_dataset, model, tokenizer, labels_i, labels_c, pad_token_l
             if args.model_type != "distilbert":
                 inputs["token_type_ids"] = (
                     batch[2] if args.model_type in ["bert", "xlnet"] else None
-                )  # XLM and RoBERTa don"t use segment_ids
+                )  # XLM and RoBERTa don"t use token_type_ids
 
             outputs = model(**inputs)
             loss, loss_i, loss_c = outputs[0]  # model outputs are always tuple in pytorch-transformers (see doc)
@@ -299,7 +299,7 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
             if args.model_type != "distilbert":
                 inputs["token_type_ids"] = (
                     batch[2] if args.model_type in ["bert", "xlnet"] else None
-                )  # XLM and RoBERTa don"t use segment_ids
+                )  # XLM and RoBERTa don"t use token_type_ids
             batch_preds = model.predict(**inputs)
 
         if preds is None:
@@ -398,12 +398,12 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
 
     # Convert to Tensors and build dataset
     all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
-    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
-    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
+    all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
     all_label_ids_i = torch.tensor([f.label_ids_i for f in features], dtype=torch.long)
     all_label_ids_c = torch.tensor([f.label_ids_c for f in features], dtype=torch.long)
 
-    dataset = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_label_ids_i, all_label_ids_c)
+    dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_label_ids_i, all_label_ids_c)
     return dataset
 
 

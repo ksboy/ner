@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class InputExample(object):
     """A single training/test example for token classification."""
 
-    def __init__(self, guid, words, segment_ids, labels_i, labels_c):
+    def __init__(self, guid, words, token_type_ids, labels_i, labels_c):
         """Constructs a InputExample.
         Args:
             guid: Unique id for the example.
@@ -36,7 +36,7 @@ class InputExample(object):
         """
         self.guid = guid
         self.words = words
-        self.segment_ids = segment_ids # 目标trigger位置
+        self.token_type_ids = token_type_ids # 目标trigger位置
         self.labels_i = labels_i
         self.labels_c = labels_c
 
@@ -44,10 +44,10 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, label_ids_i, label_ids_c):
+    def __init__(self, input_ids, attention_mask, token_type_ids, label_ids_i, label_ids_c):
         self.input_ids = input_ids
-        self.input_mask = input_mask
-        self.segment_ids = segment_ids
+        self.attention_mask = attention_mask
+        self.token_type_ids = token_type_ids
         self.label_ids_i = label_ids_i
         self.label_ids_c = label_ids_c
 
@@ -63,17 +63,17 @@ def read_examples_from_file(data_dir, mode):
             if line.startswith("-DOCSTART-") or line == "" or line == "\n":
                 if words:
                     if mode!='train':
-                        segment_ids = [0] * len(words)
-                        examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
+                        token_type_ids = [0] * len(words)
+                        examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, token_type_ids=token_type_ids, labels_i=labels_i, labels_c = labels_c))
                     else:
                         entities = get_entities(labels_i)
                         for _, start, end in entities:
-                            segment_ids = [0] * len(words)
+                            token_type_ids = [0] * len(words)
                             _labels_c = ['O']*len(words)
                             for i in range(start, end+1):
-                                segment_ids[i] = 1
+                                token_type_ids[i] = 1
                                 _labels_c[i] = labels_c[i]
-                            examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
+                            examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, token_type_ids=token_type_ids, labels_i=labels_i, labels_c = _labels_c))
                     guid_index += 1
                     words = []
                     labels_i, labels_c = [], []
@@ -98,17 +98,17 @@ def read_examples_from_file(data_dir, mode):
 
         if words:
             if mode!='train':
-                segment_ids = [0] * len(words)
-                examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = labels_c))
+                token_type_ids = [0] * len(words)
+                examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, token_type_ids=token_type_ids, labels_i=labels_i, labels_c = labels_c))
             else:
                 entities = get_entities(labels_i)
                 for _, start, end in entities:
-                    segment_ids = [0] * len(words)
+                    token_type_ids = [0] * len(words)
                     _labels_c = ['O']*len(words)
                     for i in range(start, end+1):
-                        segment_ids[i] = 1
+                        token_type_ids[i] = 1
                         _labels_c[i] = labels_c[i]
-                    examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, segment_ids=segment_ids, labels_i=labels_i, labels_c = _labels_c))
+                    examples.append(InputExample(guid="{}-{}".format(mode, guid_index), words=words, token_type_ids=token_type_ids, labels_i=labels_i, labels_c = _labels_c))
     return examples
 
 
@@ -148,16 +148,16 @@ def convert_examples_to_features(
             logger.info("Writing example %d of %d", ex_index, len(examples))
 
         tokens = []
-        segment_ids= []
+        token_type_ids= []
         label_ids_i = []
         label_ids_c = []
-        for word, segment_id, label_i, label_c in zip(example.words, example.segment_ids, example.labels_i, example.labels_c):
+        for word, segment_id, label_i, label_c in zip(example.words, example.token_type_ids, example.labels_i, example.labels_c):
             word_tokens = tokenizer.tokenize(word)
 
             # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
             if len(word_tokens) > 0:
                 tokens.extend(word_tokens)
-                segment_ids.extend([sequence_a_segment_id if not segment_id else trigger_token_segment_id]+ [sequence_a_segment_id] * (len(word_tokens) - 1))
+                token_type_ids.extend([sequence_a_segment_id if not segment_id else trigger_token_segment_id]+ [sequence_a_segment_id] * (len(word_tokens) - 1))
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
                 label_ids_i.extend([label_map_i[label_i]] + [pad_token_label_id] * (len(word_tokens) - 1))
                 label_ids_c.extend([label_map_c[label_c]] + [pad_token_label_id] * (len(word_tokens) - 1))
@@ -168,7 +168,7 @@ def convert_examples_to_features(
             tokens = tokens[: (max_seq_length - special_tokens_count)]
             label_ids_i = label_ids_i[: (max_seq_length - special_tokens_count)]
             label_ids_c = label_ids_c[: (max_seq_length - special_tokens_count)]
-            segment_ids = segment_ids[: (max_seq_length - special_tokens_count)]
+            token_type_ids = token_type_ids[: (max_seq_length - special_tokens_count)]
 
         # The convention in BERT is:
         # (a) For sequence pairs:
@@ -191,49 +191,49 @@ def convert_examples_to_features(
         tokens += [sep_token]
         label_ids_i += [pad_token_label_id]
         label_ids_c += [pad_token_label_id]
-        segment_ids += [sequence_a_segment_id]
+        token_type_ids += [sequence_a_segment_id]
         if sep_token_extra:
             # roberta uses an extra separator b/w pairs of sentences
             tokens += [sep_token]
             label_ids_i += [pad_token_label_id]
             label_ids_c += [pad_token_label_id]
-            segment_ids += [sequence_a_segment_id]
+            token_type_ids += [sequence_a_segment_id]
 
         if cls_token_at_end:
             tokens += [cls_token]
             label_ids_i += [pad_token_label_id]
             label_ids_c += [pad_token_label_id]
-            segment_ids += [cls_token_segment_id]
+            token_type_ids += [cls_token_segment_id]
         else:
             tokens = [cls_token] + tokens
             label_ids_i = [pad_token_label_id] + label_ids_i
             label_ids_c = [pad_token_label_id] + label_ids_c
-            segment_ids = [cls_token_segment_id] + segment_ids
+            token_type_ids = [cls_token_segment_id] + token_type_ids
 
         input_ids = tokenizer.convert_tokens_to_ids(tokens)
 
         # The mask has 1 for real tokens and 0 for padding tokens. Only real
         # tokens are attended to.
-        input_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
+        attention_mask = [1 if mask_padding_with_zero else 0] * len(input_ids)
 
         # Zero-pad up to the sequence length.
         padding_length = max_seq_length - len(input_ids)
         if pad_on_left:
             input_ids = ([pad_token] * padding_length) + input_ids
-            input_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + input_mask
-            segment_ids = ([pad_token_segment_id] * padding_length) + segment_ids
+            attention_mask = ([0 if mask_padding_with_zero else 1] * padding_length) + attention_mask
+            token_type_ids = ([pad_token_segment_id] * padding_length) + token_type_ids
             label_ids_i = ([pad_token_label_id] * padding_length) + label_ids_i
             label_ids_c = ([pad_token_label_id] * padding_length) + label_ids_c
         else:
             input_ids += [pad_token] * padding_length
-            input_mask += [0 if mask_padding_with_zero else 1] * padding_length
-            segment_ids += [pad_token_segment_id] * padding_length
+            attention_mask += [0 if mask_padding_with_zero else 1] * padding_length
+            token_type_ids += [pad_token_segment_id] * padding_length
             label_ids_i += [pad_token_label_id] * padding_length
             label_ids_c += [pad_token_label_id] * padding_length
 
         assert len(input_ids) == max_seq_length
-        assert len(input_mask) == max_seq_length
-        assert len(segment_ids) == max_seq_length
+        assert len(attention_mask) == max_seq_length
+        assert len(token_type_ids) == max_seq_length
         assert len(label_ids_i) == max_seq_length
         assert len(label_ids_c) == max_seq_length
 
@@ -242,13 +242,13 @@ def convert_examples_to_features(
             logger.info("guid: %s", example.guid)
             logger.info("tokens: %s", " ".join([str(x) for x in tokens]))
             logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
-            logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))
-            logger.info("segment_ids: %s", " ".join([str(x) for x in segment_ids]))
+            logger.info("attention_mask: %s", " ".join([str(x) for x in attention_mask]))
+            logger.info("token_type_ids: %s", " ".join([str(x) for x in token_type_ids]))
             logger.info("label_ids_i: %s", " ".join([str(x) for x in label_ids_i]))
             logger.info("label_ids_c: %s", " ".join([str(x) for x in label_ids_c]))
 
         features.append(
-            InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, \
+            InputFeatures(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, \
                 label_ids_i=label_ids_i, label_ids_c=label_ids_c)
         )
     return features
