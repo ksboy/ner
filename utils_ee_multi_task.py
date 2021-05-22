@@ -53,6 +53,7 @@ class InputFeatures(object):
 
 ## lic 格式
 def trigger_process_bio_lic(input_file, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -76,6 +77,7 @@ def trigger_process_bio_lic(input_file, is_predict=False):
 
 ## ccks格式
 def trigger_process_bio_ccks(input_file, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -102,6 +104,7 @@ def trigger_process_bio_ccks(input_file, is_predict=False):
 
 ## lic格式
 def role_process_bio_lic(input_file, add_event_type_to_role=False, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:

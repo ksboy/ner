@@ -41,10 +41,10 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
 )
-# from utils_ner import convert_examples_to_features, read_examples_from_file
-from utils_ee import convert_examples_to_features, read_examples_from_file
-# from utils import get_labels_ner as get_labels
-from utils import get_labels_ee as get_labels
+from utils_ner import convert_examples_to_features, read_examples_from_file
+# from utils_ee import convert_examples_to_features, read_examples_from_file
+from utils import get_labels_ner as get_labels
+# from utils import get_labels_ee as get_labels
 from utils import write_file
 
 try:
@@ -639,14 +639,15 @@ def main():
         **tokenizer_args,
     )
 
-    # unexpected_keys = ['classifier.weight', 'classifier.bias']
-    # state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
-    # # for key in state_dict.keys():
-    # #     print(key)
-    # for key in unexpected_keys:
-    #     state_dict.pop(key, None)
-
-    state_dict = None
+    if os.path.exists(os.path.join(args.model_name_or_path, "pytorch_model.bin")):
+        unexpected_keys = ['classifier.weight', 'classifier.bias']
+        state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
+        # for key in state_dict.keys():
+        #     print(key)
+        for key in unexpected_keys:
+            state_dict.pop(key, None)
+    else:
+        state_dict = None
 
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,

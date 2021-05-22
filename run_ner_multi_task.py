@@ -42,10 +42,10 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationMultiTask as AutoModelForTokenClassification
-# from utils_ner_multi_task import convert_examples_to_features, read_examples_from_file
-from utils_ee_multi_task import convert_examples_to_features, read_examples_from_file
-# from utils import get_labels_ner as get_labels
-from utils import get_labels_ee as get_labels
+from utils_ner_multi_task import convert_examples_to_features, read_examples_from_file
+# from utils_ee_multi_task import convert_examples_to_features, read_examples_from_file
+from utils import get_labels_ner as get_labels
+# from utils import get_labels_ee as get_labels
 
 from utils import write_file
 try:
@@ -653,6 +653,13 @@ def main():
         args.fp16,
     )
 
+    # if args.dataset in ['lic', 'ccks']:
+    #     from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+    #     from utils import get_labels_ee as get_labels
+    # elif args.dataset in ['conll-2003', 'ontonotes-5.0', 'support-wnut-5shot']:
+    #     from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+    #     from utils import get_labels_ner as get_labels
+
     # Set seed
     set_seed(args)
 
@@ -691,12 +698,15 @@ def main():
     config.label2id_i={label: i for i, label in enumerate(labels_i)}
     config.loss = args.loss
 
-    unexpected_keys = ['classifier.weight', 'classifier.bias']
-    state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
-    # for key in state_dict.keys():
-    #     print(key)
-    for key in unexpected_keys:
-        state_dict.pop(key, None)
+    if os.path.exists(os.path.join(args.model_name_or_path, "pytorch_model.bin")):
+        unexpected_keys = ['classifier.weight', 'classifier.bias']
+        state_dict = torch.load(os.path.join(args.model_name_or_path, "pytorch_model.bin"), map_location="cpu")
+        # for key in state_dict.keys():
+        #     print(key)
+        for key in unexpected_keys:
+            state_dict.pop(key, None)
+    else:
+        state_dict = None
 
     model = AutoModelForTokenClassification.from_pretrained(
         args.model_name_or_path,

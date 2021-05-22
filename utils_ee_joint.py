@@ -54,6 +54,7 @@ class InputFeatures(object):
 
 ## lic 格式
 def trigger_process_bio_lic(input_file, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -77,6 +78,7 @@ def trigger_process_bio_lic(input_file, is_predict=False):
 
 ## ccks格式
 def trigger_process_bio_ccks(input_file, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -103,6 +105,7 @@ def trigger_process_bio_ccks(input_file, is_predict=False):
 
 ## lic格式
 def role_process_bio_lic(input_file, add_event_type_to_role=False, is_predict=False):
+    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -138,10 +141,6 @@ def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=F
         # labels = ['O']*len(row["content"])
         labels_i = ['O']*len(row["content"])
         labels_c = ['O']*len(row["content"])
-        if is_predict:
-            segment_ids = [0] * len(row["content"])
-            results.append({"id":row["id"], "words":list(row["content"]), "segment_ids":segment_ids, "labels_i":labels_i, "labels_c":labels_c})
-            continue
         for event in row["events"]:
             event_type = event["type"]
             for arg in event["mentions"]:
@@ -152,9 +151,16 @@ def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=F
                 argument_start_index, argument_end_index = arg["span"]
                 # labels[argument_start_index]= "B-{}".format(role)
                 labels_i[argument_start_index]= "B"
+                labels_c[argument_start_index]= role
                 for i in range(argument_start_index+1, argument_end_index):
                     # labels[i]= "I-{}".format(role)
                     labels_i[i]= "I"
+                    labels_c[i]= role
+        if is_predict:
+            segment_ids = [0] * len(row["content"])
+            results.append({"id":row["id"], "words":list(row["content"]), "segment_ids":segment_ids, "labels_i":labels_i, "labels_c":labels_c})
+            continue
+        
         for event in row["events"]:
             event_type = event["type"]
             for arg in event["mentions"]:
@@ -181,7 +187,7 @@ def read_examples_from_file(data_dir, mode, task='role', dataset="ccks"):
     file_path = os.path.join(data_dir, "{}.json".format(mode))
     if dataset=="ccks":
         if task=='trigger': items = trigger_process_bio_ccks(file_path)
-        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True)
+        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True, is_predict=mode!='train')
     elif dataset=="lic":
         if task=='trigger': items = trigger_process_bio_lic(file_path)
         elif task=='role': items = role_process_bio_lic(file_path, add_event_type_to_role=True)

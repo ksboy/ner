@@ -40,10 +40,10 @@ from transformers import (
     get_linear_schedule_with_warmup,
 )
 from model import BertForTokenClassificationJoint as AutoModelForTokenClassification
-from utils_ner_joint import convert_examples_to_features, read_examples_from_file
-# from utils_ee_joint import convert_examples_to_features, read_examples_from_file
-from utils import get_labels_ner as get_labels
-# from utils import get_labels_ee as get_labels
+# from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+# from utils import get_labels_ner as get_labels
+from utils import get_labels_ee as get_labels
 
 from utils import write_file
 try:
@@ -564,12 +564,13 @@ def main():
     parser.add_argument("--server_port", type=str, default="", help="For distant debugging.")
     args = parser.parse_args()
 
-    # if args.dataset in ['lic', 'ccks']:
-    #     from utils_ee_joint import convert_examples_to_features, read_examples_from_file
-    #     from utils import get_labels_ee as get_labels
+    if args.dataset in ['lic', 'ccks']:
+        from utils_ee_joint import convert_examples_to_features, read_examples_from_file
+        from utils import get_labels_ee as get_labels
     # elif args.dataset in ['conll-2003', 'ontonotes-5.0', 'support-wnut-5shot']:
-    #     from utils_ner_joint import convert_examples_to_features, read_examples_from_file
-    #     from utils import get_labels_ner as get_labels
+    else:
+        from utils_ner_joint import convert_examples_to_features, read_examples_from_file
+        from utils import get_labels_ner as get_labels
 
     if (
         os.path.exists(args.output_dir)

@@ -131,6 +131,7 @@ def convert_examples_to_features(
         # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
         special_tokens_count = tokenizer.num_special_tokens_to_add()
         if len(tokens) > max_seq_length - special_tokens_count:
+            print("out of max seq length")
             tokens = tokens[: (max_seq_length - special_tokens_count)]
             label_ids = label_ids[: (max_seq_length - special_tokens_count)]
 
@@ -206,3 +207,9 @@ def convert_examples_to_features(
             InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, label_ids=label_ids)
         )
     return features
+
+if __name__ == "__main__":
+    for domain in ['ai', 'literature', 'music', 'politics', 'science']:
+        for mode in ['train']:
+            examples = read_examples_from_file("./data/crossNER/"+ domain + "/", mode)
+            print(len(max(examples, key=lambda x:len(x.words)).words))

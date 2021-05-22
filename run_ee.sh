@@ -1,25 +1,25 @@
 DATASET=ccks
 TASK=role
-DOMAIN=base
+DOMAIN=few
 DATA_DIR=./data/FewFC-main/rearranged/$DOMAIN
 LABEL=./data/FewFC-main/event_schema/$DOMAIN.json
 MAX_LENGTH=256
 # BERT_MODEL=/home/whou/workspace/pretrained_models/bert-base-cased
-BERT_MODEL=/hy-nas/workspace/pretrained_models/chinese_bert_wwm_ext_pytorch/
-# BERT_MODEL=./output/ccks/base/multi_task/checkpoint-best/
-OUTPUT_DIR=./output/$DATASET/$DOMAIN/multi_task/
+# BERT_MODEL=/hy-nas/workspace/pretrained_models/chinese_bert_wwm_ext_pytorch/
+BERT_MODEL=./output/ccks/base/identification/checkpoint-best/
+OUTPUT_DIR=./output/$DATASET/$DOMAIN/transfer/identification/
 BATCH_SIZE=16
 EVAL_BATCH_SIZE=64
 NUM_EPOCHS=10000
 WARMUP_STEPS=100
 SAVE_STEPS=100
 SEED=1
-LR=3e-5
+LR=2e-5
 
 mkdir -p $OUTPUT_DIR
 # CUDA_VISIBLE_DEVICES=0 python3 run_ner.py  \
 # CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_joint.py  \
-CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_multi_task.py  \
+CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner.py  \
 --dataset $DATASET \
 --task $TASK \
 --data_dir $DATA_DIR \
@@ -35,6 +35,7 @@ CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_multi_task.py  \
 --save_steps $SAVE_STEPS \
 --logging_steps $SAVE_STEPS \
 --seed $SEED \
+--do_train \
 --do_eval \
 --evaluate_during_training \
 --early_stop 3 \
@@ -43,4 +44,4 @@ CUDA_VISIBLE_DEVICES=0 nohup python3 -u run_ner_multi_task.py  \
 --warmup_steps $WARMUP_STEPS \
 --seed $SEED \
 --overwrite_cache \
---overwrite_output_dir > $OUTPUT_DIR/eval.log 2>&1 &
+--overwrite_output_dir > $OUTPUT_DIR/output.log 2>&1 &
