@@ -130,5 +130,5 @@ dmypy.json
 
 
 .vscode
-data
+cached*
 output

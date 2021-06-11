@@ -105,7 +105,7 @@ def convert_examples_to_features(
     """
 
     label_map = {label: i for i, label in enumerate(label_list)}
-
+    print(label_map)
     features = []
     for (ex_index, example) in enumerate(examples):
         if ex_index % 10000 == 0:

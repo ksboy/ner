@@ -1,0 +1,5 @@
+{"event_type": "收购", "role_list": [{"role": "sub-org"}, {"role": "sub-per"}, {"role": "obj-org"}, {"role": "way"}, {"role": "date"}, {"role": "money"}, {"role": "number"}, {"role": "proportion"}]}
+{"event_type": "担保", "role_list": [{"role": "sub-org"}, {"role": "sub-per"}, {"role": "obj-org"}, {"role": "way"}, {"role": "amount"}, {"role": "date"}]}
+{"event_type": "中标", "role_list": [{"role": "sub"}, {"role": "obj"}, {"role": "amount"}, {"role": "date"}]}
+{"event_type": "签署合同", "role_list": [{"role": "sub-org"}, {"role": "sub-per"}, {"role": "obj-org"}, {"role": "obj-per"}, {"role": "amount"}, {"role": "date"}]}
+{"event_type": "判决", "role_list": [{"role": "institution"}, {"role": "sub-per"}, {"role": "sub-org"}, {"role": "obj-per"}, {"role": "obj-org"}, {"role": "date"}, {"role": "money"}]}

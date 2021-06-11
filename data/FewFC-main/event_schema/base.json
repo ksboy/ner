@@ -1,0 +1,5 @@
+{"event_type": "质押", "role_list": [{"role": "sub-org"}, {"role": "sub-per"}, {"role": "obj-org"}, {"role": "obj-per"}, {"role": "collateral"}, {"role": "date"}, {"role": "money"}, {"role": "number"}, {"role": "proportion"}]}    
+{"event_type": "股份股权转让", "role_list": [{"role": "sub-org"}, {"role": "sub-per"}, {"role": "obj-org"}, {"role": "obj-per"}, {"role": "collateral"}, {"role": "date"}, {"role": "money"}, {"role": "number"}, {"role": "proportion"}, {"role": "target-company"}]}
+{"event_type": "起诉", "role_list": [{"role": "sub-per"}, {"role": "sub-org"}, {"role": "obj-per"}, {"role": "obj-org"}, {"role": "date"}]}
+{"event_type": "投资", "role_list": [{"role": "sub"}, {"role": "obj"}, {"role": "money"}, {"role": "date"}]}
+{"event_type": "减持", "role_list": [{"role": "sub"}, {"role": "obj"}, {"role": "title"}, {"role": "date"}, {"role": "share-per"}, {"role": "share-org"}]}

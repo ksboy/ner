@@ -78,28 +78,49 @@ def trigger_process_bio_lic(input_file, is_predict=False):
 
 ## ccks格式
 def trigger_process_bio_ccks(input_file, is_predict=False):
-    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
         if len(row)==1: print(row)
         row = json.loads(row)
-        labels = ['O']*len(row["content"])
-        if is_predict: 
-            results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
-            continue
+        labels_i = ['O']*len(row["content"])
+        labels_c = ['O']*len(row["content"])
         for event in row["events"]:
             event_type = event["type"]
             for mention in event["mentions"]:
                 if mention["role"]=="trigger":
                     trigger = mention["word"]
                     trigger_start_index, trigger_end_index = mention["span"]
-                    labels[trigger_start_index]= "B-{}".format(event_type)
+                    # labels[trigger_start_index]= "B-{}".format(event_type)
+                    labels_i[trigger_start_index]= "B"
+                    # labels_c[trigger_start_index]= event_type
                     for i in range(trigger_start_index+1, trigger_end_index):
-                        labels[i]= "I-{}".format(event_type)
+                        # labels[i]= "I-{}".format(event_type)
                         # labels[i]= "I-{}".format("触发词")
+                        labels_i[i]= "I"
+                        # labels_c[i]= event_type
                     break
-        results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+        if is_predict: 
+            results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+            continue
+        for event in row["events"]:
+            event_type = event["type"]
+            for arg in event["mentions"]:
+                if mention["role"]=="trigger":
+                    trigger = mention["word"]
+                    trigger_start_index, trigger_end_index = mention["span"]
+                    # labels[trigger_start_index]= "B-{}".format(event_type)
+                    labels_c = ['O']*len(row["content"])
+                    token_type_ids = [0] * len(row["content"])
+                    labels_c[trigger_start_index]= event_type
+                    token_type_ids[trigger_start_index] = 1
+                    for i in range(trigger_start_index+1, trigger_end_index):
+                        # labels[i]= "I-{}".format(event_type)
+                        # labels[i]= "I-{}".format("触发词")
+                        labels_c[i]= event_type
+                        token_type_ids[i] = 1
+                    results.append({"id":row["id"], "words":list(row["content"]),  "token_type_ids":token_type_ids, "labels_i":labels_i, "labels_c":labels_c})
+                    break
     # write_file(results,output_file)
     return results
 
@@ -151,11 +172,11 @@ def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=F
                 argument_start_index, argument_end_index = arg["span"]
                 # labels[argument_start_index]= "B-{}".format(role)
                 labels_i[argument_start_index]= "B"
-                labels_c[argument_start_index]= role
+                # labels_c[argument_start_index]= role
                 for i in range(argument_start_index+1, argument_end_index):
                     # labels[i]= "I-{}".format(role)
                     labels_i[i]= "I"
-                    labels_c[i]= role
+                    # labels_c[i]= role
         if is_predict:
             token_type_ids = [0] * len(row["content"])
             results.append({"id":row["id"], "words":list(row["content"]), "token_type_ids":token_type_ids, "labels_i":labels_i, "labels_c":labels_c})

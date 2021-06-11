@@ -77,15 +77,16 @@ def trigger_process_bio_lic(input_file, is_predict=False):
 
 ## ccks格式
 def trigger_process_bio_ccks(input_file, is_predict=False):
-    raise NotImplementedError
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
         if len(row)==1: print(row)
         row = json.loads(row)
-        labels = ['O']*len(row["content"])
+        # labels = ['O']*len(row["content"])
+        labels_i = ['O']*len(row["content"])
+        labels_c = ['O']*len(row["content"])
         if is_predict: 
-            results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+            results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
             continue
         for event in row["events"]:
             event_type = event["type"]
@@ -93,12 +94,16 @@ def trigger_process_bio_ccks(input_file, is_predict=False):
                 if mention["role"]=="trigger":
                     trigger = mention["word"]
                     trigger_start_index, trigger_end_index = mention["span"]
-                    labels[trigger_start_index]= "B-{}".format(event_type)
+                    # labels[trigger_start_index]= "B-{}".format(event_type)
+                    labels_i[trigger_start_index]= "B"
+                    labels_c[trigger_start_index]= event_type
                     for i in range(trigger_start_index+1, trigger_end_index):
-                        labels[i]= "I-{}".format(event_type)
+                        # labels[i]= "I-{}".format(event_type)
                         # labels[i]= "I-{}".format("触发词")
+                        labels_i[i]= "I"
+                        labels_c[i]= event_type
                     break
-        results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
+        results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
     # write_file(results,output_file)
     return results
 
@@ -158,7 +163,7 @@ def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=F
                     labels_i[i]= "I"
                     labels_c[i]= role
                 # if arg['alias']!=[]: print(arg['alias'])
-                results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
+        results.append({"id":row["id"], "words":list(row["content"]), "labels_i":labels_i, "labels_c":labels_c})
     # write_file(results,output_file)
     return results
 
@@ -200,6 +205,7 @@ def convert_examples_to_features(
 
     label_map_i = {label: i for i, label in enumerate(label_list_i)}
     label_map_c = {label: i for i, label in enumerate(label_list_c)}
+    print(label_map_i, label_map_c)
 
     features = []
     for (ex_index, example) in enumerate(examples):

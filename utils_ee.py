@@ -74,8 +74,7 @@ def trigger_process_bio_lic(input_file, is_predict=False):
     return results
 
 ## ccks格式
-def trigger_process_bio_ccks(input_file, is_predict=False):
-    raise NotImplementedError
+def trigger_process_bio_ccks(input_file, is_predict=False, task="ner"):
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -91,9 +90,12 @@ def trigger_process_bio_ccks(input_file, is_predict=False):
                 if mention["role"]=="trigger":
                     trigger = mention["word"]
                     trigger_start_index, trigger_end_index = mention["span"]
-                    labels[trigger_start_index]= "B-{}".format(event_type)
+                    if task=='ner': labels[trigger_start_index]= "B-{}".format(event_type)
+                    elif task=="identification": labels[trigger_start_index]= "B"
+                    # labels[trigger_start_index]= "B-{}".format(event_type)
                     for i in range(trigger_start_index+1, trigger_end_index):
-                        labels[i]= "I-{}".format(event_type)
+                        if task=='ner': labels[i]= "I-{}".format(event_type)
+                        elif task=="identification": labels[i] = "I"
                         # labels[i]= "I-{}".format("触发词")
                     break
         results.append({"id":row["id"], "words":list(row["content"]), "labels":labels})
@@ -129,7 +131,7 @@ def role_process_bio_lic(input_file, add_event_type_to_role=False, is_predict=Fa
     return results
 
 ## ccks格式
-def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=False):
+def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=False, task="ner"):
     rows = open(input_file, encoding='utf-8').read().splitlines()
     results = []
     for row in rows:
@@ -146,21 +148,21 @@ def role_process_bio_ccks(input_file, add_event_type_to_role=False, is_predict=F
                 if role=="trigger": continue
                 if add_event_type_to_role: role = event_type + '-' + role
                 argument_start_index, argument_end_index = arg["span"]
-                # labels[argument_start_index]= "B-{}".format(role)
-                labels[argument_start_index]= "B"
+                if task=='ner': labels[argument_start_index]= "B-{}".format(role)
+                elif task=="identification": labels[argument_start_index]= "B"
                 for i in range(argument_start_index+1, argument_end_index):
-                    # labels[i]= "I-{}".format(role)
-                    labels[i]= "I"
+                    if task=='ner': labels[i]= "I-{}".format(role)
+                    elif task=="identification": labels[i]= "I"
                 # if arg['alias']!=[]: print(arg['alias'])
-                results.append({"id":row["id"], "words":list(row["content"]), "labels":labels,})
+        results.append({"id":row["id"], "words":list(row["content"]), "labels":labels,})
     # write_file(results,output_file)
     return results
 
 def read_examples_from_file(data_dir, mode, task='role', dataset="ccks"):
     file_path = os.path.join(data_dir, "{}.json".format(mode))
     if dataset=="ccks":
-        if task=='trigger': items = trigger_process_bio_ccks(file_path)
-        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True)
+        if task=='trigger': items = trigger_process_bio_ccks(file_path, task="identification")
+        elif task=='role': items = role_process_bio_ccks(file_path, add_event_type_to_role=True, task="identification")
     elif dataset=="lic":
         if task=='trigger': items = trigger_process_bio_lic(file_path)
         elif task=='role': items = role_process_bio_lic(file_path, add_event_type_to_role=True)
@@ -205,15 +207,21 @@ def convert_examples_to_features(
 
             # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
             if len(word_tokens) > 0:
-                tokens.extend(word_tokens)
+                # tokens.extend(word_tokens)
                 # # Use the real label id for all token of the word
                 # label_ids.extend([label_map[label]] * len(word_tokens))
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
-                label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
+                # label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
 
-                # # only use the first token of the word
-                # tokens.append(word_tokens[0])
-                # label_ids.append(label_map[label])
+                # only use the first token of the word
+                tokens.append(word_tokens[0])
+                label_ids.append(label_map[label])
+            
+            # for identification task
+            if len(word_tokens) < 1:
+                # print(word,"<1") # 基本都是空格
+                tokens.extend(["[unused1]"])
+                label_ids.extend([label_map[label]])
 
         # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
         special_tokens_count = tokenizer.num_special_tokens_to_add()
@@ -293,3 +301,37 @@ def convert_examples_to_features(
             InputFeatures(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, label_ids=label_ids)
         )
     return features
+
+
+if __name__ == "__main__":
+    # convert train_file/dev_file to conll-style
+    input_file = "./data/FewFC-main/rearranged/few/train.json"
+    items = trigger_process_bio_ccks(input_file, is_predict=False)
+    output_file = "./data/FewFC-main/rearranged/few/trigger/train.txt"
+    writer = open(output_file, "w")
+    for item in items:
+        for word, label in zip(item['words'], item['labels']):
+            writer.write(word +"\t" + label + '\n')
+        writer.write('\n')
+
+    # # convert pred_file to conll-style
+    # input_file = "./data/FewFC-main/rearranged/few/dev.json"
+    # items = role_process_bio_ccks(input_file, add_event_type_to_role=True, is_predict=True)
+    # pred_file = "./output/ccks/trigger/base->few/identification/checkpoint-best/eval_predictions.json"
+    # lines = open(pred_file).readlines()
+    # preds = [json.loads(line) for line in lines]
+    # output_file = "./output/ccks/trigger/base->few/identification/checkpoint-best/eval_predictions_as_conll.txt"
+    # writer = open(output_file, "w")
+    # for i, (item, pred) in enumerate(zip(items, preds)):
+    #     if len(item['words']) != len(pred['labels']):
+    #         print(i)
+    #         pred['labels'] += ['O']* (len(item['words']) - len(pred['labels']))
+    #         # print(item, pred)
+    #         # print(len(item['words']), len(pred['labels']))
+    #     assert len(item['words']) == len(pred['labels'])
+    #     for word, label in zip(item['words'], pred['labels']):
+    #         writer.write(word +"\t" + label + '\n')
+    #     writer.write('\n')
+    
+    
+

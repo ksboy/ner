@@ -1,0 +1,13 @@
+award
+organisation
+location
+musicalinstrument
+musicgenre
+musicalartist
+country
+album
+song
+misc
+event
+person
+band

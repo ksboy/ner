@@ -25,7 +25,9 @@ import random
 import numpy as np
 import torch
 from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
-from metrics import f1_score_i, precision_score_i, recall_score_i, accuracy_score_entity, accuracy_score_token
+from metrics import f1_score_identification, precision_score_identification, recall_score_identification, \
+    accuracy_score_entity_classification, accuracy_score_token_classification, \
+    f1_score_token_classification, precision_score_token_classification, recall_score_token_classification 
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -338,11 +340,14 @@ def evaluate(args, model, tokenizer, labels_i, labels_c, pad_token_label_id, mod
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
         "f1": f1_score(out_label_list, preds_list),
-        "precision_i": precision_score_i(out_label_list, preds_list),
-        "recall_i": recall_score_i(out_label_list, preds_list),
-        "f1_i": f1_score_i(out_label_list, preds_list),
-        "accuracy_token_c": accuracy_score_token(out_label_list, preds_list),
-        "accuracy_entity_c": accuracy_score_entity(out_label_list, preds_list)
+        "precision_i": precision_score_identification(out_label_list, preds_list),
+        "recall_i": recall_score_identification(out_label_list, preds_list),
+        "f1_i": f1_score_identification(out_label_list, preds_list),
+        "precision_c": precision_score_token_classification(out_label_list, preds_list),
+        "recall_c": recall_score_token_classification(out_label_list, preds_list),
+        "f1_c": f1_score_token_classification(out_label_list, preds_list),
+        "accuracy_token_c": accuracy_score_token_classification(out_label_list, preds_list),
+        "accuracy_entity_c": accuracy_score_entity_classification(out_label_list, preds_list)
     }
     report = classification_report(out_label_list, preds_list, digits=4)
     
@@ -370,7 +375,7 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
         features = torch.load(cached_features_file)
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
-        examples = read_examples_from_file(args.data_dir, mode)
+        examples = read_examples_from_file(args.data_dir, mode, task=args.task, dataset=args.dataset)
         features = convert_examples_to_features(
             examples,
             labels_i, labels_c,
@@ -389,9 +394,9 @@ def load_and_cache_examples(args, tokenizer, labels_i, labels_c, pad_token_label
             pad_token_segment_id=4 if args.model_type in ["xlnet"] else 0,
             pad_token_label_id=pad_token_label_id,
         )
-        if args.local_rank in [-1, 0] and not args.overwrite_cache:
-            logger.info("Saving features into cached file %s", cached_features_file)
-            torch.save(features, cached_features_file)
+        # if args.local_rank in [-1, 0] and not args.overwrite_cache:
+        #     logger.info("Saving features into cached file %s", cached_features_file)
+        #     torch.save(features, cached_features_file)
 
     if args.local_rank == 0 and not evaluate:
         torch.distributed.barrier()  # Make sure only the first process in distributed training process the dataset, and the others will use the cache
@@ -623,8 +628,8 @@ def main():
     set_seed(args)
 
     # Prepare CONLL-2003 task
-    labels_i = get_labels(args.labels, mode="identification")
-    labels_c = get_labels(args.labels, mode="classification") + ['O']
+    labels_i = get_labels(args.labels, task=args.task, mode="identification")
+    labels_c = get_labels(args.labels, task=args.task, mode="classification") # + ['O']
     print(labels_c, labels_i)
     
     num_labels_i = len(labels_i)

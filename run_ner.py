@@ -25,7 +25,9 @@ import random
 import numpy as np
 import torch
 from seqeval.metrics import f1_score, precision_score, recall_score, classification_report
-from metrics import f1_score_i, precision_score_i, recall_score_i, accuracy_score_entity, accuracy_score_token
+from metrics import f1_score_identification, precision_score_identification, recall_score_identification, \
+    accuracy_score_entity_classification, accuracy_score_token_classification, \
+    f1_score_token_classification, precision_score_token_classification, recall_score_token_classification 
 from seqeval.metrics.sequence_labeling import get_entities
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
@@ -41,10 +43,10 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
 )
-from utils_ner import convert_examples_to_features, read_examples_from_file
-# from utils_ee import convert_examples_to_features, read_examples_from_file
-from utils import get_labels_ner as get_labels
-# from utils import get_labels_ee as get_labels
+# from utils_ner import convert_examples_to_features, read_examples_from_file
+# from utils import get_labels_ner as get_labels
+from utils_ee import convert_examples_to_features, read_examples_from_file
+from utils import get_labels_ee as get_labels
 from utils import write_file
 
 try:
@@ -337,11 +339,14 @@ def evaluate(args, model, tokenizer, labels, pad_token_label_id, mode, prefix=""
         "precision": precision_score(out_label_list, preds_list),
         "recall": recall_score(out_label_list, preds_list),
         "f1": f1_score(out_label_list, preds_list),
-        "precision_i": precision_score_i(out_label_list, preds_list),
-        "recall_i": recall_score_i(out_label_list, preds_list),
-        "f1_i": f1_score_i(out_label_list, preds_list),
-        "accuracy_token_c": accuracy_score_token(out_label_list, preds_list),
-        "accuracy_entity_c": accuracy_score_entity(out_label_list, preds_list)
+        "precision_i": precision_score_identification(out_label_list, preds_list),
+        "recall_i": recall_score_identification(out_label_list, preds_list),
+        "f1_i": f1_score_identification(out_label_list, preds_list),
+        "precision_c": precision_score_token_classification(out_label_list, preds_list),
+        "recall_c": recall_score_token_classification(out_label_list, preds_list),
+        "f1_c": f1_score_token_classification(out_label_list, preds_list),
+        "accuracy_token_c": accuracy_score_token_classification(out_label_list, preds_list),
+        "accuracy_entity_c": accuracy_score_entity_classification(out_label_list, preds_list)
     }
     report = classification_report(out_label_list, preds_list, digits=4)
     
@@ -369,7 +374,7 @@ def load_and_cache_examples(args, tokenizer, labels, pad_token_label_id, mode):
         features = torch.load(cached_features_file)
     else:
         logger.info("Creating features from dataset file at %s", args.data_dir)
-        examples = read_examples_from_file(args.data_dir, mode)
+        examples = read_examples_from_file(args.data_dir, mode, task=args.task, dataset=args.dataset)
         print(len(examples))
         features = convert_examples_to_features(
             examples,
@@ -614,7 +619,7 @@ def main():
     set_seed(args)
 
     # Prepare CONLL-2003 task
-    labels = get_labels(args.labels, mode="identification")
+    labels = get_labels(args.labels, task=args.task, mode="identification")
     num_labels = len(labels)
     # Use cross entropy ignore index as padding label id so that only real label ids contribute to the loss later
     pad_token_label_id = CrossEntropyLoss().ignore_index
